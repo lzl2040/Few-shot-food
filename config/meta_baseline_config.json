@@ -1,0 +1,73 @@
+{
+    "train":{
+        "num_episodes":2000,
+        "num_ways":10,
+        "num_shots":5,
+        "num_queries":5,
+        "episodes_seed":1001,
+        "per_gpu_batch_size":1,
+        "per_gpu_workers": 8,
+        "epoches": 100,
+        "dataset":{
+            "img_size": 224,
+            "data_prefix":"/home/gaoxingyu/dataset/food-101/",
+            "classes":"/home/gaoxingyu/dataset/food-101/meta/fsl_train_class.txt",
+            "ann": "/home/gaoxingyu/dataset/food-101/meta/fsl_train.txt"
+        }
+    },
+    "test": {
+        "num_episodes":1000,
+        "num_ways":5,
+        "num_shots":1,
+        "num_queries":15,
+        "episodes_seed": 0,
+        "dataset":{
+            "img_size": 224,
+            "data_prefix":"/home/gaoxingyu/dataset/food-101/",
+            "classes":"/home/gaoxingyu/dataset/food-101/meta/fsl_test_class.txt",
+            "ann": "/home/gaoxingyu/dataset/food-101/meta/fsl_test.txt"
+        },
+        "meta_test_cfg":{
+            "num_episodes": 1000,
+            "num_ways": 5,
+            "fast_test": 0,
+            "test_set": {
+                "batch_size": 16,
+                "num_workers": 2
+            },
+            "support": {
+                "batch_size": 5,
+                "num_workers": 2
+            },
+            "query": {
+                "batch_size": 75,
+                "num_workers": 2
+            },
+            "evaluation": {
+                "metric": "accuracy"
+            }
+        }
+    },
+    "subset":"train",
+    "optimizer":{
+        "lr":0.0002,
+        "wd": 0.0001,
+        "mom": 0.9
+    },
+    "model":{
+        "meta_baseline": {
+
+        },
+        "anp": {
+
+        }
+    },
+    "train_model": "anp",
+    "other":{
+        "log_interval": 2,
+        "save_interval": 10,
+        "weights_save_path":"./weights/",
+        "weights_load_path": "",
+        "val_interval" : 1
+    }
+}
