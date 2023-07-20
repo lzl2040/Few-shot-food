@@ -182,7 +182,7 @@ class ResNetSobel(ResNet):
 pretrain_resnet50_path = ""
 # pretrain_resnet50_path = "/home/gaoxingyu/Project/Few-shot-food/weights/pretrain_resnet50_backbone.pth"
 def resnet50():
-    resnet = ResNet(depth = 50,in_channels = 3,num_stages = 4,norm_cfg = dict(type = 'BN'),out_indices = (3,))
+    resnet = ResNet(depth = 50,in_channels = 3,num_stages = 4,norm_cfg = dict(type = 'BN'),out_indices = (4,))
     if pretrain_resnet50_path:
         # 加载权重
         state_dict = torch.load(pretrain_resnet50_path)

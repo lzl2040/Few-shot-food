@@ -43,8 +43,8 @@ class BaseFewShotClassifier(nn.Module):
         if head == "meta_baseline":
             self.head = MetaBaselineHead()
         elif head == "anp_head":
-            self.head = AttentionNeuralProcessHead(self_input_dim=2048, cross_input_dim=1024,
-                                                   q_dim = 512,v_dim = 512, spatial_size = 196,
+            self.head = AttentionNeuralProcessHead(self_input_dim=4096, cross_input_dim=2048,
+                                                   q_dim = 1024,v_dim = 1024, spatial_size = 196,
                                                    class_num=class_num)
 
         self.meta_test_cfg = None

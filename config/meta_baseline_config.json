@@ -65,9 +65,9 @@
     "train_model": "anp",
     "other":{
         "log_interval": 2,
-        "save_interval": 10,
+        "save_interval": 50,
         "weights_save_path":"./weights/",
         "weights_load_path": "",
-        "val_interval" : 1
+        "val_interval" : 5
     }
 }

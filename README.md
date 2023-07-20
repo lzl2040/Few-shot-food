@@ -10,6 +10,8 @@
 - make the training process run succesfully
 ### 7.14
 - complete the function that when a test interval is reached, we test the model
+### 7.17-7.18
+- borrow the idea from the anp
 ## 遇到的问题
 ### 使用mmfewshot框架时遇到的问题
 如果出现“THC/THC.h: No such file or directory”错误，需要调低pytorch版本到1.10，使用命令：
@@ -51,7 +53,13 @@ tmux attach -t train_model
 1.损失不下降
 因为我冻结了模型，导致不训练。
 ### afn
-RuntimeError: CUDA error: device-side assert triggered
+1.RuntimeError: CUDA error: device-side assert triggered
+生成one-hot编码出错，因为query label的值为：1 20 30 4 0 50这种，而class_num只设置为5，
+需要将query label中的标签重新转换，范围变成0-class_num。
+2.afn中的cross-attention中query和support的batch大小不一致，导致如果support和query大小不一致，
+将无法运行
+3.softmax得到的值很平均，损失不下降
+
 ## 结果记录
 ### 7.14
 1.setting: use pretrain, optimzer:SGD lr:0.002 iterations:10K episode_num:2000 epoch:60 img_size:84 no_scheduler,

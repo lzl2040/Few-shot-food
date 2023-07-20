@@ -107,7 +107,7 @@ if __name__ == '__main__':
         net_noraml.cuda(),device_ids=[local_rank], output_device=local_rank, broadcast_buffers=False)
     # 创建优化器
     optimzer = optim.AdamW(net.parameters(), lr = configs['optimizer']['lr'], weight_decay = configs['optimizer']['wd'])
-    scheduler = optim.lr_scheduler.MultiStepLR(optimzer, milestones=[80 * 2000], gamma = 0.5)
+    scheduler = optim.lr_scheduler.MultiStepLR(optimzer, milestones=[60 * 500], gamma = 0.1)
     # 加载训练好的权重
     epoch = 1
     if configs['other']['weights_load_path']:
