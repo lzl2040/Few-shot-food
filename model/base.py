@@ -14,6 +14,9 @@ import torch.nn as nn
 import abc
 
 from model.anp_head import AttentionNeuralProcessHead
+from model.cnp_head import ConditionalNeuralProcessHead
+from model.debug_head import DebugHead
+from model.frn_head import FeatureReconstructionHead
 from util.tools import weights_init
 from model.resnet import resnet50
 from model.meta_baseline_head import MetaBaselineHead
@@ -34,19 +37,25 @@ class BaseFewShotClassifier(nn.Module):
     def __init__(self,
                  backbone,
                  head,
-                 class_num):
+                 class_num=None):
         super().__init__()
         # 加载backbone
         if backbone == "resnet50":
             self.backbone = resnet50()
+            # print(self.backbone)
         # 加载预测头
-        if head == "meta_baseline":
+        if head == "meta_baseline_head":
             self.head = MetaBaselineHead()
         elif head == "anp_head":
-            self.head = AttentionNeuralProcessHead(self_input_dim=4096, cross_input_dim=2048,
-                                                   q_dim = 1024,v_dim = 1024, spatial_size = 196,
-                                                   class_num=class_num)
-
+            self.head = AttentionNeuralProcessHead(x_dim = 2048, x_trans_dim = 512,y_trans_dim = 512,
+                                                   cross_out_dim = 512, r_dim = 512, class_num = class_num)
+        elif head == "cnp_head":
+            self.head = ConditionalNeuralProcessHead(x_dim = 2048, x_trans_dim = 512, y_trans_dim = 512,
+                                                        r_dim = 512, class_num = class_num)
+        elif head == "debug_head":
+            self.head = DebugHead(x_dim=2048,x_trans_dim=512,y_trans_dim=512,class_num=class_num)
+        elif head == "frn_head":
+            self.head = FeatureReconstructionHead(class_num=class_num)
         self.meta_test_cfg = None
         # `device_indicator` is used to record runtime device
         # `MetaTestParallel` will use `device_indicator` to

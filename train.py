@@ -6,6 +6,9 @@ Copyright (c) 2023/7/7
 @author: 
 """
 from model.attention_neural_process import AttentionNeuralProcess
+from model.conditional_neural_process import ConditionalNeuralProcess
+from model.debug_model import DebugModel
+from model.feature_reconstruction_network import FeatureReconstructionNetwork
 from model.meta_baseline import MetaBaseline
 from datasets.food101_set import Food101Dataset
 from datasets.dataset_wrapper import EpisodicDataset,MetaTestDatastet
@@ -99,14 +102,29 @@ if __name__ == '__main__':
     meta_test_cfg = configs['test']['meta_test_cfg']
     test_support_dataloader, test_query_dataloader = build_meta_test_dataloader(test_dataset,meta_test_cfg)
     # 创建network
+    net_normal = None
     if configs["train_model"] == 'meta_baseline':
-        net_noraml = MetaBaseline(backbone="resnet50",head="meta_baseline_head")
+        net_normal = MetaBaseline(backbone="resnet50",head="meta_baseline_head")
     elif configs["train_model"] == "anp":
-        net_noraml = AttentionNeuralProcess(backbone="resnet50",head="anp_head",class_num=configs['train']['num_ways'])
+        net_normal = AttentionNeuralProcess(backbone="resnet50",head="anp_head",class_num=configs['train']['num_ways'])
+    elif configs["train_model"] == "cnp":
+        # print(configs["train_model"])
+        net_normal = ConditionalNeuralProcess(backbone="resnet50", head="cnp_head", class_num=configs['train']['num_ways'])
+        # print(net_normal)
+    elif configs["train_model"] == "debug":
+        net_normal = DebugModel(backbone="resnet50",head="debug_head",class_num=configs['train']['num_ways'])
+    elif configs["train_model"] == "frn":
+        net_normal = FeatureReconstructionNetwork(backbone="resnet50", head="frn_head", class_num=configs['train']['num_ways'])
+
     net = nn.parallel.DistributedDataParallel(
-        net_noraml.cuda(),device_ids=[local_rank], output_device=local_rank, broadcast_buffers=False)
+        net_normal.cuda(),device_ids=[local_rank], output_device=local_rank, broadcast_buffers=False)
     # 创建优化器
-    optimzer = optim.AdamW(net.parameters(), lr = configs['optimizer']['lr'], weight_decay = configs['optimizer']['wd'])
+    optimizer_type = configs['optimizer']['type']
+    if optimizer_type == "adamw":
+        optimzer = optim.AdamW(net.parameters(), lr = configs['optimizer']['lr'], weight_decay = configs['optimizer']['wd'])
+    elif optimizer_type == "sgd":
+        optimzer = optim.SGD(net.parameters(), lr=configs['optimizer']['lr'], weight_decay=configs['optimizer']['wd'],
+                             momentum=configs['optimizer']['mom'])
     scheduler = optim.lr_scheduler.MultiStepLR(optimzer, milestones=[60 * 500], gamma = 0.1)
     # 加载训练好的权重
     epoch = 1
@@ -146,7 +164,7 @@ if __name__ == '__main__':
                 end_time = datetime.datetime.now()
                 consume_time = (end_time - start_time).seconds
                 if local_rank == 0:
-                    logger.info(f"[Epoch:{epoch} Interation/Total:{episode_num}/{total_train_iter}] Lr:{scheduler.get_last_lr()[0]:.5f} Loss:{loss['loss'].item():.5f} Time:{consume_time:.5f}")
+                    logger.info(f"[Epoch:{epoch} Iteration/Total:{episode_num}/{total_train_iter}] Lr:{scheduler.get_last_lr()[0]:.5f} Loss:{loss['loss'].item():.5f} Time:{consume_time:.5f}")
                 start_time = datetime.datetime.now()
         if epoch % configs["other"]["save_interval"] == 0:
             logger.info(f"save model_{epoch}")

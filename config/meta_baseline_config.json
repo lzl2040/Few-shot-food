@@ -7,7 +7,7 @@
         "episodes_seed":1001,
         "per_gpu_batch_size":1,
         "per_gpu_workers": 8,
-        "epoches": 100,
+        "epoches": 200,
         "dataset":{
             "img_size": 224,
             "data_prefix":"/home/gaoxingyu/dataset/food-101/",
@@ -50,7 +50,8 @@
     },
     "subset":"train",
     "optimizer":{
-        "lr":0.0002,
+        "type": "sgd",
+        "lr":0.002,
         "wd": 0.0001,
         "mom": 0.9
     },
@@ -65,7 +66,7 @@
     "train_model": "anp",
     "other":{
         "log_interval": 2,
-        "save_interval": 50,
+        "save_interval": 20,
         "weights_save_path":"./weights/",
         "weights_load_path": "",
         "val_interval" : 5

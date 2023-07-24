@@ -16,6 +16,7 @@ import os.path as osp
 import shutil
 
 import torch
+import torch.nn as nn
 from torch import Tensor
 import torch.distributed as distributed
 import mmcv
@@ -165,6 +166,52 @@ def make_file(names, path):
                 img_path = os.path.join(img_dir,img_name).replace("/home/gaoxingyu/dataset/food-101/images/","")
                 f.write(f"{img_path}\n")
 
+def get_activation_name(activation):
+    """Given a string or a `torch.nn.modules.activation` return the name of the activation."""
+    if isinstance(activation, str):
+        return activation
+
+    mapper = {
+        nn.LeakyReLU: "leaky_relu",
+        nn.ReLU: "relu",
+        nn.Tanh: "tanh",
+        nn.Sigmoid: "sigmoid",
+        nn.Softmax: "sigmoid",
+    }
+    for k, v in mapper.items():
+        if isinstance(activation, k):
+            return k
+
+    raise ValueError("Unkown given activation type : {}".format(activation))
+
+def linear_init(module, activation="relu"):
+    """Initialize a linear layer.
+
+    Parameters
+    ----------
+    module : nn.Module
+       module to initialize.
+
+    activation : `torch.nn.modules.activation` or str, optional
+        Activation that will be used on the `module`.
+    """
+    x = module.weight
+
+    if module.bias is not None:
+        module.bias.data.zero_()
+
+    if activation is None:
+        return nn.init.xavier_uniform_(x)
+
+    activation_name = get_activation_name(activation)
+
+    if activation_name == "leaky_relu":
+        a = 0 if isinstance(activation, str) else activation.negative_slope
+        return nn.init.kaiming_uniform_(x, a=a, nonlinearity="leaky_relu")
+    elif activation_name == "relu":
+        return nn.init.kaiming_uniform_(x, nonlinearity="relu")
+    elif activation_name in ["sigmoid", "tanh"]:
+        return nn.init.xavier_uniform_(x, gain=get_gain(activation))
 
 def weights_init(module, **kwargs):
     """Initialize a module and all its descendents.
