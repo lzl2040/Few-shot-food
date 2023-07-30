@@ -155,15 +155,23 @@ def scatter_kwargs(inputs, kwargs, target_gpus, dim=0):
     kwargs = tuple(kwargs)
     return inputs, kwargs
 
-def make_file(names, path):
-    img_root_path = "/home/gaoxingyu/dataset/food-101/images"
+def make_file(img_root_path, names, path, is_num):
+    """
+    :param img_root_path: 图像文件夹
+    :param names: 对应的图像文件名称
+    :param path: 要保存的路径
+    :param is_num: 图像文件名称是否是数字
+    """
     with open(path,"w") as f:
         for name in names:
-            img_dir = os.path.join(img_root_path,name)
+            img_dir = os.path.join(img_root_path,str(name))
             img_names = os.listdir(img_dir)
-            sort_img_names = sorted(img_names,key=lambda s: int(s.split('.')[0]))
+            if is_num:
+                sort_img_names = sorted(img_names,key=lambda s: int(s.split('.')[0]))
+            else:
+                sort_img_names = sorted(img_names)
             for img_name in sort_img_names:
-                img_path = os.path.join(img_dir,img_name).replace("/home/gaoxingyu/dataset/food-101/images/","")
+                img_path = os.path.join(img_dir,img_name).replace(img_root_path + "/","")
                 f.write(f"{img_path}\n")
 
 def get_activation_name(activation):
@@ -239,35 +247,57 @@ def weights_init(module, **kwargs):
             m.weight.data.fill_(1)
             m.bias.data.zero_()
 
-def generate_split_food101dataset():
-    class_path = "/home/gaoxingyu/dataset/food-101/meta/classes.txt"
+def generate_split_dataset(data_root, train_num, is_imgs_id, is_img_name_num):
+    """
+    :param data_root: 数据集目录
+    :param train_num: 用于训练的类别数目
+    :param is_imgs_id: 图像文件夹名称是否是下标
+    :param is_img_name_num: 图像名字是否是数字
+    :return: None
+    """
+    class_path = os.path.join(data_root,"meta", "classes.txt")
     class_list = list_from_file(class_path)
-    id2class = {i : _class for i, _class in enumerate(class_list)}
-    # 选择71个类作为训练集的，30个作为测试的
-    train_class_ids = random.sample(range(len(class_list)),71)
+    if is_imgs_id:
+        id2class = {i + 1 : _class for i, _class in enumerate(class_list)}
+    else:
+        id2class = {i: _class for i, _class in enumerate(class_list)}
+    # class2id = {_class : i + 1 for i, _class in enumerate(class_list)}
+    # 选择train_num个类作为训练集的，其他作为测试的
+    train_class_ids = random.sample(range(1, len(class_list) + 1),train_num)
     test_class_ids = []
-    for id in range(len(class_list)):
+    for id in range(1, len(class_list) + 1):
         if id not in train_class_ids:
             test_class_ids.append(id)
-    # 切分
-    train_class_name = [id2class[id] for id in train_class_ids]
-    test_class_name = [id2class[id] for id in test_class_ids]
+    # 获得images文件夹的名称
+    if is_imgs_id:
+        train_class_name = train_class_ids
+        test_class_name = test_class_ids
+    else:
+        train_class_name = [id2class[id] for id in train_class_ids]
+        test_class_name = [id2class[id] for id in test_class_ids]
     # 顺序排序
     train_class_name = sorted(train_class_name)
     test_class_name = sorted(test_class_name)
-    with open("/home/gaoxingyu/dataset/food-101/meta/fsl_train_class.txt","w") as f:
+    train_class_save_path = os.path.join(data_root, "meta", "fsl_train_class.txt")
+    test_class_save_path = os.path.join(data_root, "meta" , "fsl_test_class.txt")
+    with open(train_class_save_path, "w") as f:
         for cls_name in train_class_name:
-            f.write(f"{cls_name}\n")
+            f.write(f"{str(cls_name)}\n")
 
-    with open("/home/gaoxingyu/dataset/food-101/meta/fsl_test_class.txt","w") as f:
+    with open(test_class_save_path, "w") as f:
         for cls_name in test_class_name:
-            f.write(f"{cls_name}\n")
+            f.write(f"{str(cls_name)}\n")
 
     # 将这些数据保存在fsl_train.txt中,格式为:class_name/img_name
-    make_file(train_class_name,"/home/gaoxingyu/dataset/food-101/meta/fsl_train.txt")
-    make_file(test_class_name,"/home/gaoxingyu/dataset/food-101/meta/fsl_test.txt")
+    img_root_path = os.path.join(data_root,"images")
+    train_imgs_name_path = os.path.join(data_root, "meta", "fsl_train.txt")
+    test_imgs_name_path = os.path.join(data_root, "meta", "fsl_test.txt")
+    make_file(img_root_path, train_class_name, train_imgs_name_path,is_img_name_num)
+    make_file(img_root_path, test_class_name,test_imgs_name_path, is_img_name_num)
 
     return train_class_ids
 
+
 if __name__ == '__main__':
-    print(generate_split_food101dataset())
+    print(generate_split_dataset(data_root="/home/gaoxingyu/dataset/vireo-172", train_num=132,
+                                 is_imgs_id=True, is_img_name_num = False))

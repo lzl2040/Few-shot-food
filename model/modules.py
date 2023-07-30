@@ -286,7 +286,8 @@ class MLP(nn.Module):
         is_res=True,
         is_sum_merge = True,
         need_softmax = False,
-        need_hidden = False,
+        need_hidden = True,
+        is_output = False,
     ):
         super().__init__()
         if is_sum_merge:
@@ -298,6 +299,7 @@ class MLP(nn.Module):
         self.need_hidden = need_hidden
         self.n_hidden_layers = n_hidden_layers
         self.is_res = is_res
+        self.is_output = is_output
         self.temper = temper
         if self.need_hidden:
             self.to_hidden = nn.Linear(self.input_size, self.hidden_size, bias=is_bias)
@@ -343,9 +345,10 @@ class MLP(nn.Module):
             out = self.dropout(out)
             x = out
         out = self.out(x)
-        out = out.squeeze(0)
-        if self.need_softmax:
-            out = torch.softmax(out / self.temper,dim = -1)
+        if self.is_output:
+            out = out.squeeze(0)
+            if self.need_softmax:
+                out = torch.softmax(out / self.temper,dim = -1)
         return out
 
     def reset_parameters(self):
@@ -355,122 +358,93 @@ class MLP(nn.Module):
             linear_init(lin, activation=self.activation)
         linear_init(self.out)
 
+# canp
+class DenseResidualBlock(nn.Module):
+    """
+    Wrapping a number of residual layers for residual block. Will be used as building block in FiLM hyper-networks.
+    :param in_size: (int) Number of features for input representation.
+    :param out_size: (int) Number of features for output representation.
+    """
+    def __init__(self, in_size, out_size):
+        super(DenseResidualBlock, self).__init__()
+        self.linear1 = nn.Linear(in_size, out_size)
+        self.linear2 = nn.Linear(out_size, out_size)
+        self.linear3 = nn.Linear(out_size, out_size)
+        self.elu = nn.ELU()
 
-# class SelfAttention(nn.Module):
-#     def __init__(self, input_dim, k_dim,v_dim, head = 1, dropout = 0):
-#         super().__init__()
-#         self.k_dim = k_dim
-#         self.v_dim = v_dim
-#         self.head = head
-#         self.linear_q = nn.Linear(input_dim, k_dim, bias=False)
-#         self.linear_k = nn.Linear(input_dim, k_dim, bias=False)
-#         self.linear_v = nn.Linear(input_dim, v_dim, bias=False)
-#         self.output_linear = nn.Linear(v_dim, v_dim)
-#         self.dropout = nn.Dropout(p = dropout) if dropout > 0 else nn.Identity()
-#         self.init_weight()
-#     def init_weight(self):
-#         for m in self.modules():
-#             if isinstance(m,nn.Linear):
-#                 nn.init.kaiming_uniform_(m.weight, a=1)
-#                 # nn.init.constant_(m.bias, 0)
-#     def forward(self,x):
-#         # x dim: B N C
-#         _,N,C = x.shape
-#         q = self.linear_q(x)
-#         k = self.linear_k(x)
-#         v = self.linear_v(x)
-#         if self.head != 1:
-#             q = q.view(1, N, self.head, self.k_dim // self.head).transpose(1, 2)
-#             k = k.view(1, N, self.head, self.k_dim // self.head).transpose(1, 2)
-#             v = v.view(1, N, self.head, self.v_dim // self.head).transpose(1, 2)
-#         affinity_matrix = torch.matmul(q, k.transpose(-1,-2)) / math.sqrt(self.k_dim // self.head)
-#         attention = torch.softmax(affinity_matrix,dim=-1)
-#         attention = self.dropout(attention)
-#         context = torch.matmul(attention,v)
-#         if self.head != 1:
-#             context = context.transpose(1,2).contiguous().view(1,N,-1)
-#         attention_out = self.output_linear(context)
-#         return attention_out
+    def forward(self, x):
+        """
+        Forward pass through residual block. Implements following computation:
 
-# class CrosssAttention(nn.Module):
-#     def __init__(self, k_input_dim, v_input_dim, k_dim,v_dim, head = 1, dropout = 0):
-#         super().__init__()
-#         self.k_dim = k_dim
-#         self.v_dim = v_dim
-#         self.head = head
-#         self.linear_q = nn.Linear(k_input_dim, k_dim, bias=False)
-#         self.linear_k = nn.Linear(k_input_dim, k_dim, bias=False)
-#         self.linear_v = nn.Linear(v_input_dim, v_dim, bias=False)
-#         self.output_linear = nn.Linear(v_dim, v_dim)
-#         self.dropout = nn.Dropout(p = dropout) if dropout > 0 else nn.Identity()
-#         self.init_weight()
-#
-#     def init_weight(self):
-#         for m in self.modules():
-#             if isinstance(m,nn.Linear):
-#                 nn.init.kaiming_uniform_(m.weight, a=1)
-#                 # nn.init.constant_(m.bias, 0)
-#
-#     def forward(self,q_x, k_x, v_x):
-#         # x dim: B N C
-#         _,Bq,Cq = q_x.shape
-#         _,Bs,Cv = v_x.shape
-#         q = self.linear_q(q_x)
-#         k = self.linear_k(k_x)
-#         # v = self.linear_v(v_x)
-#         # B * N * 8 * 512 / 8
-#         v = v_x
-#         if self.head != 1:
-#             q = q.view(1, Bq, self.head, self.k_dim // self.head).transpose(1,2)
-#             k = k.view(1, Bs, self.head, self.k_dim // self.head).transpose(1,2)
-#             v = v.view(1, Bs, self.head, self.v_dim // self.head).transpose(1,2)
-#             # print(v_x.shape)
-#         # print(q.shape)
-#         # print(k.shape)
-#         # print(v.shape)
-#
-#         affinity_matrix = torch.matmul(q, k.transpose(-1,-2)) / math.sqrt(self.k_dim // self.head)
-#         attention = torch.softmax(affinity_matrix,dim=-1)
-#         attention = self.dropout(attention)
-#         context = torch.matmul(attention,v)
-#         if self.head != 1:
-#             context = context.transpose(1,2).contiguous().view(1,Bq,-1)
-#         attention_out = self.output_linear(context)
-#         return context
+                h = f3( f2( f1(x) ) ) + x
+                or
+                h = f3( f2( f1(x) ) )
 
-# class MLP(nn.Module):
-#     def __init__(self,r_dim, z_dim, q_dim, class_num, temper = 0.1):
-#         super().__init__()
-#         # self.proj_rz = nn.Linear(r_dim + z_dim, q_dim, bias = False)
-#         all_dim = q_dim + r_dim
-#         self.class_num = class_num
-#         self.linear1 = nn.Linear(in_features=all_dim, out_features=512,bias = False)
-#         self.linear2 = nn.Linear(in_features=512, out_features = 64,bias = False)
-#         self.output_layer = nn.Linear(in_features=64,out_features=self.class_num,bias = False)
-#         self.temper = temper
-#         self.init_weight()
-#     def init_weight(self):
-#         for m in self.modules():
-#             if isinstance(m,nn.Linear):
-#                 nn.init.kaiming_uniform_(m.weight, a=1)
-#                 # nn.init.constant_(m.bias, 0)
-#
-#     def forward(self, query, r, z = None):
-#         # query :1 Bq 1024 r:1 Bq 256
-#         if z:
-#             expand_z = z.expand(-1, r.shape[1], -1)
-#             rz_merge = torch.cat([expand_z, r],dim = -1)
-#             rz_merge = self.proj_rz(rz_merge)
-#         else:
-#             rz_merge = r
-#         # combine_feats:1 Bq 1280
-#         combine_feats = torch.cat([rz_merge, query],dim = -1)
-#         linear1_feats = torch.sigmoid(self.linear1(combine_feats))
-#         linear2_feats = torch.sigmoid(self.linear2(linear1_feats))
-#         prob = self.output_layer(linear2_feats).squeeze(0)
-#         # 添加温度系数
-#         prob = torch.softmax(prob / self.temper,dim=-1)
-#         return prob
+                where fi(x) = Elu( Wi^T x + bi )
 
+        :param x: (torch.tensor) Input representation to apply layer to ( dim(x) = (batch, in_size) ).
+        :return: (torch.tensor) Return f(x) ( dim(f(x) = (batch, out_size) ).
+        """
+        identity = x
+        out = self.linear1(x)
+        out = self.elu(out)
+        out = self.linear2(out)
+        out = self.elu(out)
+        out = self.linear3(out)
+        if x.shape[-1] == out.shape[-1]:
+            out += identity
+        return out
+
+
+class LinearClassifierAdaptationNetwork(nn.Module):
+    """
+    Versa-style adaptation network for linear classifier (see https://arxiv.org/abs/1805.09921 for full details).
+    :param d_theta: (int) Input / output feature dimensionality for layer.
+    """
+    def __init__(self, d_theta):
+        super(LinearClassifierAdaptationNetwork, self).__init__()
+        self.weight_means_processor = self._make_mean_dense_block(d_theta, d_theta)
+        self.bias_means_processor = self._make_mean_dense_block(d_theta, 1)
+
+    @staticmethod
+    def _make_mean_dense_block(in_size, out_size):
+        """
+        Simple method for generating different types of blocks. Final code only uses dense residual blocks.
+        :param in_size: (int) Input representation dimensionality.
+        :param out_size: (int) Output representation dimensionality.
+        :return: (nn.Module) Adaptation network parameters for outputting classification parameters.
+        """
+        return DenseResidualBlock(in_size, out_size)
+
+    def forward(self, representation_dict):
+        """
+        Forward pass through adaptation network. Returns classification parameters for task.
+        :param representation_dict: (dict::torch.tensors) Dictionary containing class-level representations for each
+                                    class in the task.
+        :return: (dict::torch.tensors) Dictionary containing the weights and biases for the classification of each class
+                 in the task. Model can extract parameters and build the classifier accordingly. Supports sampling if
+                 ML-PIP objective is desired.
+        """
+        classifier_param_dict = {}
+        class_weight_means = []
+        class_bias_means = []
+
+        # Extract and sort the label set for the task
+        label_set = list(representation_dict.keys())
+        label_set.sort()
+        num_classes = len(label_set)
+
+        # For each class, extract the representation and pass it through adaptation network to generate classification
+        # params for that class. Store parameters in a list,
+        for class_num in label_set:
+            nu = representation_dict[class_num]
+            class_weight_means.append(self.weight_means_processor(nu))
+            class_bias_means.append(self.bias_means_processor(nu))
+
+        # Save the parameters as torch tensors (matrix and vector) and add to dictionary
+        classifier_param_dict['weight_mean'] = torch.cat(class_weight_means, dim=0)
+        classifier_param_dict['bias_mean'] = torch.reshape(torch.cat(class_bias_means, dim=1), [num_classes, ])
+
+        return classifier_param_dict
 
 

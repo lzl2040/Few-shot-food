@@ -6,11 +6,13 @@ Copyright (c) 2023/7/7
 @author: 
 """
 from model.attention_neural_process import AttentionNeuralProcess
+from model.canp import ConditionalAdaptiveNeuralProcess
 from model.conditional_neural_process import ConditionalNeuralProcess
 from model.debug_model import DebugModel
 from model.feature_reconstruction_network import FeatureReconstructionNetwork
 from model.meta_baseline import MetaBaseline
 from datasets.food101_set import Food101Dataset
+from datasets.UniversalFewShotDataset import UniversalFewShotDataset
 from datasets.dataset_wrapper import EpisodicDataset,MetaTestDatastet
 from util.collate import multi_pipeline_collate_fn as collate
 from functools import partial
@@ -68,7 +70,7 @@ if __name__ == '__main__':
         logger.info(f"Experiment Setting:{configs}")
     # 创建数据集
     ## train_dataset
-    train_food_dataset = Food101Dataset(data_prefix=configs['train']['dataset']['data_prefix'],
+    train_food_dataset = UniversalFewShotDataset(data_prefix=configs['train']['dataset']['data_prefix'],
                              subset="train", classes=configs['train']['dataset']['classes'],
                              img_size=configs['train']['dataset']['img_size'],ann_file=configs['train']['dataset']['ann'])
     train_dataset = EpisodicDataset(dataset=train_food_dataset,
@@ -89,7 +91,7 @@ if __name__ == '__main__':
         drop_last=True
     )
     ## test dataset
-    test_food_dataset = Food101Dataset(data_prefix=configs['test']['dataset']['data_prefix'],
+    test_food_dataset = UniversalFewShotDataset(data_prefix=configs['test']['dataset']['data_prefix'],
                              subset="test", classes=configs['test']['dataset']['classes'],
                              img_size=configs['test']['dataset']['img_size'],ann_file=configs['test']['dataset']['ann'])
     ## test dataloader
@@ -115,6 +117,8 @@ if __name__ == '__main__':
         net_normal = DebugModel(backbone="resnet50",head="debug_head",class_num=configs['train']['num_ways'])
     elif configs["train_model"] == "frn":
         net_normal = FeatureReconstructionNetwork(backbone="resnet50", head="frn_head", class_num=configs['train']['num_ways'])
+    elif configs["train_model"] == "canp":
+        net_normal = ConditionalAdaptiveNeuralProcess(backbone="resnet50", head="canp_head", class_num=configs['train']['num_ways'])
 
     net = nn.parallel.DistributedDataParallel(
         net_normal.cuda(),device_ids=[local_rank], output_device=local_rank, broadcast_buffers=False)
@@ -125,18 +129,19 @@ if __name__ == '__main__':
     elif optimizer_type == "sgd":
         optimzer = optim.SGD(net.parameters(), lr=configs['optimizer']['lr'], weight_decay=configs['optimizer']['wd'],
                              momentum=configs['optimizer']['mom'])
-    scheduler = optim.lr_scheduler.MultiStepLR(optimzer, milestones=[60 * 500], gamma = 0.1)
+    scheduler = optim.lr_scheduler.MultiStepLR(optimzer, milestones=[75 * 500], gamma = 0.1)
     # 加载训练好的权重
     epoch = 1
     if configs['other']['weights_load_path']:
         net, optimzer, scheduler, epoch = load_weights(network=net, optimzer=optimzer,
                                                        scheduler=scheduler,local_rank=local_rank,
-                                                       weights_path=configs['other']['weights_load_path'])
+                                                       weights_path=configs['other']['weights_load_path'],
+                                                       just_weight=True)
     # 开始训练
     total_interations = 0
     # 获得训练开始的时间
     now_time = time.strftime('%Y_%m_%d_%H_%M', time.localtime())
-    save_path = os.path.join(configs['other']['weights_save_path'], now_time)
+    save_path = os.path.join(configs['other']['weights_save_path'], now_time, configs['train']["dataset"]["name"])
     total_train_iter = len(train_data_loader)
     # 最大的准确率
     best_top1_acc = 0

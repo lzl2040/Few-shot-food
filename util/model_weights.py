@@ -30,11 +30,11 @@ def load_weights(network, weights_path, local_rank,optimzer=None, scheduler=None
     weights = torch.load(weights_path,map_location={'cuda:0': map_location})
     if just_weight:
         network.module.load_state_dict(weights)
-        return network
+        return network,optimzer,scheduler,1
     else:
         epoch = weights['epoch']
         net_state_dict = weights['network']
-        opt_state_dict = weights['optimzer']
+        opt_state_dict = weights['optimizer']
         sch_state_dict = weights['scheduler']
         network.module.load_state_dict(net_state_dict)
         optimzer.load_state_dict(opt_state_dict)

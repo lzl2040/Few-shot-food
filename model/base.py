@@ -14,6 +14,7 @@ import torch.nn as nn
 import abc
 
 from model.anp_head import AttentionNeuralProcessHead
+from model.canp_head import ConditionalAdaptiveNeuralProcessHead
 from model.cnp_head import ConditionalNeuralProcessHead
 from model.debug_head import DebugHead
 from model.frn_head import FeatureReconstructionHead
@@ -56,6 +57,8 @@ class BaseFewShotClassifier(nn.Module):
             self.head = DebugHead(x_dim=2048,x_trans_dim=512,y_trans_dim=512,class_num=class_num)
         elif head == "frn_head":
             self.head = FeatureReconstructionHead(class_num=class_num)
+        elif head == "canp_head":
+            self.head = ConditionalAdaptiveNeuralProcessHead(output_size=2048)
         self.meta_test_cfg = None
         # `device_indicator` is used to record runtime device
         # `MetaTestParallel` will use `device_indicator` to

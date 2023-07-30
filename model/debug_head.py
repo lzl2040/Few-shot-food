@@ -26,7 +26,7 @@ class DebugHead(BaseFewShotHead):
         self.aggregate = MultiheadAttender(input_kq_size=x_dim, kq_size=x_trans_dim, value_size=x_dim,
                                            n_heads=8, out_size=x_dim, is_post_process=False)
 
-        self.output_layer = nn.Linear(x_dim,class_num,bias = False)
+        self.output_layer = nn.Linear(x_dim, class_num,bias = False)
         self.x_dim = x_dim
         self.nll_loss = NLLLoss()
         self.support_feats_list = []
@@ -44,43 +44,52 @@ class DebugHead(BaseFewShotHead):
         resolution = H * W
         query_shots = Bq // self.class_num
         support_shots = Bs // self.class_num
-        # transform shape
-        ## support: num_ways support_shot * resolution d
-        ## query: num_ways query_shot * resolution d
-        support_feats = support_feats.view(Bs,C,-1).permute(0,2,1) \
-            .contiguous().view(self.class_num, support_shots * resolution, C)
-        query_feats = query_feats.view(Bq,C,-1).permute(0,2,1) \
-            .contiguous().view(self.class_num, query_shots * resolution, C)
-        # aggregate feats: num_ways query_shot * resolution dv
-        # print(support_feats.shape)
-        # print(query_feats.shape)
-        aggregate_feats = self.aggregate(query_feats,support_feats,support_feats)
-        # print("agg:"+str(aggregate_feats.shape))
-        aggregate_feats = aggregate_feats.view(self.class_num * query_shots, resolution, self.x_dim)
-        mean_feats = torch.mean(aggregate_feats,dim=1)
-        probs = self.output_layer(mean_feats)
-        # one hot编码
+        query_feats = self.avg(query_feats).view(Bq, -1)
+        probs = self.output_layer(query_feats)
         query_label_one_hot = F.one_hot(query_labels, num_classes=self.class_num)
         losses = {}
         loss = cross_entropy(probs, query_label_one_hot.float())
         losses['loss'] = loss
         return losses
+        # transform shape
+        ## support: num_ways support_shot * resolution d
+        ## query: num_ways query_shot * resolution d
+        # support_feats = support_feats.view(Bs,C,-1).permute(0,2,1) \
+        #     .contiguous().view(self.class_num, support_shots * resolution, C)
+        # query_feats = query_feats.view(Bq,C,-1).permute(0,2,1) \
+        #     .contiguous().view(self.class_num, query_shots * resolution, C)
+        # # aggregate feats: num_ways query_shot * resolution dv
+        # # print(support_feats.shape)
+        # # print(query_feats.shape)
+        # aggregate_feats = self.aggregate(query_feats,support_feats,support_feats)
+        # # print("agg:"+str(aggregate_feats.shape))
+        # aggregate_feats = aggregate_feats.view(self.class_num * query_shots, resolution, self.x_dim)
+        # mean_feats = torch.mean(aggregate_feats,dim=1)
+        # probs = self.output_layer(mean_feats)
+        # # one hot编码
+        # query_label_one_hot = F.one_hot(query_labels, num_classes=self.class_num)
+        # losses = {}
+        # loss = cross_entropy(probs, query_label_one_hot.float())
+        # losses['loss'] = loss
+        # return losses
 
     def forward_query(self, x, **kwargs):
         Bq, C, H, W = x.shape
         resolution = H * W
-        query_shots = Bq // len(self.class_ids)
-        query_feats = x.view(Bq, C, -1).permute(0, 2, 1) \
-            .contiguous().view(len(self.class_ids), query_shots * resolution, C)
-        # print(query_feats.shape)
-        # print(self.support_feats.shape)
-        aggregate_feats = self.aggregate(query_feats, self.support_feats, self.support_feats)
-        # print("agg:"+str(aggregate_feats.shape))
-        aggregate_feats = aggregate_feats.view(len(self.class_ids) * query_shots, resolution, -1)
-        mean_feats = torch.mean(aggregate_feats, dim=1)
-        probs = self.output_layer(mean_feats)
-        probs = torch.softmax(probs,dim = -1)
-        probs = list(probs.detach().cpu().numpy())
+
+        # query_shots = Bq // len(self.class_ids)
+        # query_feats = x.view(Bq, C, -1).permute(0, 2, 1) \
+        #     .contiguous().view(len(self.class_ids), query_shots * resolution, C)
+        # # print(query_feats.shape)
+        # # print(self.support_feats.shape)
+        # aggregate_feats = self.aggregate(query_feats, self.support_feats, self.support_feats)
+        # # print("agg:"+str(aggregate_feats.shape))
+        # aggregate_feats = aggregate_feats.view(len(self.class_ids) * query_shots, resolution, -1)
+        # mean_feats = torch.mean(aggregate_feats, dim=1)
+        # probs = self.output_layer(mean_feats)
+        #
+        # probs = torch.softmax(probs,dim = -1)
+        # probs = list(probs.detach().cpu().numpy())
         return probs
 
     def forward_support(self, x, gt_label, **kwargs):

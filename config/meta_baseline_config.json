@@ -7,12 +7,13 @@
         "episodes_seed":1001,
         "per_gpu_batch_size":1,
         "per_gpu_workers": 8,
-        "epoches": 200,
+        "epoches": 160,
         "dataset":{
+            "name": "vireo_172",
             "img_size": 224,
-            "data_prefix":"/home/gaoxingyu/dataset/food-101/",
-            "classes":"/home/gaoxingyu/dataset/food-101/meta/fsl_train_class.txt",
-            "ann": "/home/gaoxingyu/dataset/food-101/meta/fsl_train.txt"
+            "data_prefix":"/home/gaoxingyu/dataset/vireo-172/",
+            "classes":"/home/gaoxingyu/dataset/vireo-172/meta/fsl_train_class.txt",
+            "ann": "/home/gaoxingyu/dataset/vireo-172/meta/fsl_train.txt"
         }
     },
     "test": {
@@ -23,9 +24,9 @@
         "episodes_seed": 0,
         "dataset":{
             "img_size": 224,
-            "data_prefix":"/home/gaoxingyu/dataset/food-101/",
-            "classes":"/home/gaoxingyu/dataset/food-101/meta/fsl_test_class.txt",
-            "ann": "/home/gaoxingyu/dataset/food-101/meta/fsl_test.txt"
+            "data_prefix":"/home/gaoxingyu/dataset/vireo-172/",
+            "classes":"/home/gaoxingyu/dataset/vireo-172/meta/fsl_test_class.txt",
+            "ann": "/home/gaoxingyu/dataset/vireo-172/meta/fsl_test.txt"
         },
         "meta_test_cfg":{
             "num_episodes": 1000,
@@ -50,8 +51,8 @@
     },
     "subset":"train",
     "optimizer":{
-        "type": "sgd",
-        "lr":0.002,
+        "type": "adamw",
+        "lr":0.0001,
         "wd": 0.0001,
         "mom": 0.9
     },
@@ -63,7 +64,7 @@
 
         }
     },
-    "train_model": "anp",
+    "train_model": "canp",
     "other":{
         "log_interval": 2,
         "save_interval": 20,

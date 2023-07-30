@@ -6,7 +6,7 @@ import numpy as np
 import torchvision.transforms as transforms
 
 class Food101EpisodeDataset(Dataset):
-    def __init__(self,img_root,meta_root,n_cls, n_support, n_query, input_w, input_h, n_episode=2000):
+    def __init__(self, img_root,meta_root,n_cls, n_support, n_query, input_w, input_h, n_episode=2000):
         # 根目录
         self.img_root = img_root
         self.meta_root = meta_root
@@ -23,18 +23,6 @@ class Food101EpisodeDataset(Dataset):
         self.label_query = intType(n_cls * n_query)
         self.support_images = floatType(n_cls * n_support, 3, input_w, input_h)
         self.query_images = floatType(n_cls * n_query, 3, input_w, input_h)
-        # 获得类别对应的数字
-        self.label2num = {}
-        self.num2label = {}
-        class_nums = 101
-        count = 0
-        with open(os.path.join(meta_root, 'labels.txt'), 'r') as f:
-            for line in f:
-                line = line.strip().replace(" ", "_").lower()
-                # print(line)
-                self.label2num[line] = count
-                self.num2label[count] = line
-                count += 1
         # 划分界限
         # labels {0, ..., nCls-1}
         for i in range(self.n_cls):

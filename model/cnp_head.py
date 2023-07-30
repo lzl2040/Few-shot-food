@@ -25,9 +25,9 @@ class ConditionalNeuralProcessHead(BaseFewShotHead):
         self.proj_x = nn.Linear(in_features = x_dim, out_features = x_trans_dim,bias = False)
         self.map_label = nn.Linear(1, y_trans_dim, bias = False)
         self.XYEncoder = MLP(x1_dim=x_trans_dim,x2_dim=y_trans_dim,hidden_size=r_dim,output_size=r_dim,
-                             n_hidden_layers=2)
+                             n_hidden_layers=2,dropout=0.5)
         self.decoder = MLP(x1_dim = x_trans_dim, x2_dim=r_dim,hidden_size=256,output_size=class_num,
-                           n_hidden_layers=4, need_softmax = True)
+                           n_hidden_layers=2, need_softmax = True, is_output=True,dropout=0.5)
         self.support_feats_list = []
         self.support_feats = None
         self.support_labels = []
@@ -43,24 +43,40 @@ class ConditionalNeuralProcessHead(BaseFewShotHead):
         Bs,C,H,W = support_feats.shape
         Bq,C,H,W = query_feats.shape
         # support:1 Bs C query:1 Bq C
-        support_feats = self.avg(support_feats).view(Bs,-1).unsqueeze(0)
+        support_feats = self.avg(support_feats).view(Bs, -1)
+        mean_support_feats = torch.cat([
+            support_feats[support_labels == class_id].mean(0, keepdim=True)
+            for class_id in class_ids
+        ], dim = 0)
+        mean_support_feats = mean_support_feats.unsqueeze(0)
         # 1 Bs C_transf
-        support_feats = self.proj_x(support_feats)
+        # print(mean_support_feats.shape)
+        support_feats = self.proj_x(mean_support_feats)
+
         query_feats = self.avg(query_feats).view(Bq,-1).unsqueeze(0)
         # 1 Bq C_transf
         query_feats = self.proj_x(query_feats)
-        support_labels = support_labels.unsqueeze(-1).float()
+        support_labels = torch.unique(support_labels).unsqueeze(-1).float()
         # map label: 1 Bs C
         map_support_label = self.map_label(support_labels).unsqueeze(0)
+
+        # 计算每个通道在N个样本上的均值和标准差
+        mean = map_support_label.mean(dim=1, keepdim=True)
+        std = map_support_label.std(dim=1, keepdim=True)
+        # 进行Z-score归一化
+        map_support_label = (map_support_label - mean) / std
         # combine feat: 1 Bs 2C
         mid_rep = self.XYEncoder(support_feats,map_support_label)
+        # print(mid_rep.shape)
         representation = torch.mean(mid_rep,dim = 1,keepdim=True).expand(-1,Bq,-1)
+        # print(representation.shape)
         probs = self.decoder(query_feats, representation)
+        # print(probs.shape)
         # one hot编码
         # print(probs.shape)
         query_label_one_hot = F.one_hot(query_labels, num_classes=self.class_num)
-        print("probs:" + str(probs[0]))
-        print("label:" + str(query_label_one_hot[0]))
+        # print("probs:" + str(probs[0]))
+        # print("label:" + str(query_label_one_hot[0]))
         losses = {}
         loss = cross_entropy(probs,query_label_one_hot.float())
         losses['loss'] = loss
